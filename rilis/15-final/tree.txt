@@ -1,0 +1,19 @@
+.
+├── assets
+│   └── icons
+│       ├── icon-128.png
+│       ├── icon-16.png
+│       ├── icon-32.png
+│       └── icon-48.png
+├── background
+│   └── index.js
+├── manifest.json
+├── popup
+│   ├── import.html
+│   ├── import.js
+│   ├── index.html
+│   ├── index.js
+│   └── style.css
+└── tree.txt
+
+4 directories, 12 files

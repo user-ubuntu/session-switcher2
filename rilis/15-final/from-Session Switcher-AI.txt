@@ -1,0 +1,3464 @@
+
+kamu berperan sebagi seorang programer handal dan kamu akan memperbaiki sebuah projek extensien google chrome yaitu extensien "A Chrome extension for switching between sessions", dimana extensien ini jika di jalankan di pernagakat google chrome windows dia berjalan normal tidak ada kendala, tapi kenapa extensien ini jika di pakai di chrome di perangkat linux ada bagian yang tidak jalan yaitu bagian export dan import file json, berikut adalah file nya, tolong perbaiki dan hasil yang di perbaiki saya minta scrip lengkap  
+
+
+
+kamu berperan sebagi seorang programer handal dan kamu akan memperbaiki sebuah projek extensien google chrome yaitu extensien "A Chrome extension for switching between sessions", kamu akan membersihkan dan memperbaiki kode agar berjalan dengan baik dan tentunya rapih dan bisa di pakai google chrome version berapa saja alias (kompatibel version) 
+
+
+kamu berperan sebagi seorang programer handal dan kamu akan memperbaiki sebuah projek extensien google chrome yaitu extensien "A Chrome extension for switching between sessions", perbaiki extensien ini dari awal agar rapih dan  hasil yang di perbaiki saya minta file lengkap   
+
+
+
+└─$ tree 
+.
+├── assets
+│   └── icons
+│       ├── icon-128.png
+│       ├── icon-16.png
+│       ├── icon-32.png
+│       └── icon-48.png
+├── background
+│   └── index.js
+├── manifest.json
+├── popup
+│   ├── import.html
+│   ├── import.js
+│   ├── index.html
+│   ├── index.js
+│   └── style.css
+└── tree.txt
+
+
+// =================================
+// ini adalah isi file manifest.json
+// =================================
+
+{
+  "manifest_version": 3,
+  "name": "Session Switcher 2",
+  "version": "1.2.0",
+  "description": "A Chrome extension for switching between sessions (fork)",
+
+  "permissions": ["storage", "tabs", "cookies", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+
+  "background": {
+    "service_worker": "background/index.js"
+  },
+
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Session Switcher",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
+  },
+
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "session-switcher-2@kuronekony4n",
+      "strict_min_version": "109.0"
+    }
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["popup/import.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+
+
+
+// =================================
+// ini adalah isi file popup/index.html
+// =================================
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Session Switcher</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div class="header-content">
+          <div class="header-actions">
+            <div id="currentSiteContainer" class="current-site-container">
+              Session Switcher 2<br>
+              <div class="current-site" id="currentSite">Loading...</div>
+            </div>
+            <div class="header-controls">
+              <button id="viewModeBtn" class="view-mode-btn">List</button>
+              <button id="menuBtn" class="menu-btn" title="Menu">
+                <span class="btn-icon">⋮</span>
+              </button>
+              <div id="menuDropdown" class="menu-dropdown">
+                <button id="saveBtn" class="dropdown-item">
+                  Save Current Session
+                </button>
+                <button id="newSessionBtn" class="dropdown-item">
+                  New Session
+                </button>
+                <button id="clearSessionBtn" class="dropdown-item">
+                  Clear Session
+                </button>
+                <button id="exportImportBtn" class="dropdown-item">
+                  Export/Import
+                </button>
+                <button id="aboutBtn" class="dropdown-item">
+                  About
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="sessions-section">
+          <div id="sessionsList" class="sessions-list">
+            <div class="no-sessions">No sessions saved for this site</div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer removed as requested -->
+    </div>
+
+    <!-- Modals -->
+    <div id="saveModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Save Current Session</h3>
+          <button id="closeSaveModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <label for="sessionName">Session Name:</label>
+          <input type="text" id="sessionName" placeholder="Enter session name" value="Unnamed Session" />
+          <label for="sessionOrder">Order:</label>
+          <input type="number" id="sessionOrder" placeholder="Enter order" />
+        </div>
+        <div class="modal-footer">
+          <button id="cancelSave" class="btn btn-secondary">Cancel</button>
+          <button id="confirmSave" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="renameModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Session</h3>
+          <button id="closeRenameModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <label for="newSessionName">New Name:</label>
+          <input type="text" id="newSessionName" placeholder="Enter new name" />
+          <label for="newSessionOrder">New Order:</label>
+          <input type="number" id="newSessionOrder" placeholder="Enter new order" />
+        </div>
+        <div class="modal-footer">
+          <button id="replaceSessionBtn" class="btn btn-secondary">Replace with Current</button>
+          <button id="cancelRename" class="btn btn-secondary">Cancel</button>
+          <button id="confirmRename" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Delete Session</h3>
+          <button id="closeDeleteModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete the session "<strong id="deleteSessionName"></strong>"?</p>
+          <p class="warning-text">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelDelete" class="btn btn-secondary">Cancel</button>
+          <button id="confirmDelete" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="errorModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Error</h3>
+          <button id="closeErrorModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="errorMessage">An unexpected error occurred.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="closeErrorModalBtn" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="aboutModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>About Session Switcher</h3>
+          <button id="closeAboutModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Session Switcher helps you manage multiple accounts/sessions on the same website by letting you save and switch between them easily.</p>
+          <br>
+          <p>All the data is localy stored and is not shared with any server.</p>
+          <p>You can check the full source code on <a href="https://github.com/kuronekony4n/session-switcher2" target="_blank">Github</a>.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="closeAboutModalBtn" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="newSessionConfirmModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Create New Session</h3>
+          <button id="closeNewSessionConfirmModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to create a new session?</p>
+          <p class="warning-text">This will log you out of your current account and clear the session data.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelNewSession" class="btn btn-secondary">Cancel</button>
+          <button id="confirmNewSession" class="btn btn-primary">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="clearSessionModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Clear Session</h3>
+          <button id="closeClearSessionModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>What would you like to clear?</p>
+          <div class="select-container">
+            <select id="clearOptionSelect" class="modal-select">
+              <option value="current">Clear sessions for current website only</option>
+              <option value="all">Clear all sessions</option>
+            </select>
+          </div>
+          <p class="warning-text">This action cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelClearSession" class="btn btn-secondary">Cancel</button>
+          <button id="confirmClearSession" class="btn btn-danger">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="exportImportModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Export/Import Sessions</h3>
+          <button id="closeExportImportModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="tab-container">
+            <div class="tab-buttons">
+              <button id="exportTabBtn" class="tab-btn active">Export</button>
+              <button id="importTabBtn" class="tab-btn">Import</button>
+              <button id="importNewTabBtn" class="tab-btn">Import in New Tab</button>
+            </div>
+            <div class="tab-content">
+              <div id="exportTab" class="tab-pane active">
+                <div class="export-section">
+                  <p>Choose which sessions to export:</p>
+                  <div class="select-container">
+                    <select id="exportOptionSelect" class="modal-select">
+                      <option value="current">Export sessions for current website only</option>
+                      <option value="all">Export all sessions</option>
+                    </select>
+                  </div>
+                  <button id="exportBtn" class="btn btn-primary">Export</button>
+                </div>
+              </div>
+              <div id="importTab" class="tab-pane">
+                <div class="import-section">
+                  <p>Select a JSON file to import sessions:</p>
+                  <input type="file" id="importFileInput" accept=".json">
+                  <button id="importBtn" class="btn btn-primary" disabled>Import</button>
+                </div>
+              </div>
+              <div id="importNewTabPane" class="tab-pane">
+                <div class="import-newtab-section">
+                  <p>Open a new tab for importing JSON files:</p>
+                  <p class="info-text">This will open a new browser tab with an import interface that allows drag-and-drop functionality.</p>
+                  <button id="openImportTabBtn" class="btn btn-primary">Open Import Tab</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="closeExportImportModalBtn" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="replaceConfirmModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Replace Session</h3>
+          <button id="closeReplaceConfirmModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Replace this session data of "<strong id="replaceSessionName"></strong>" with the one currently open in the browser?</p>
+          <p class="warning-text">This will overwrite the saved session data.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelReplaceConfirm" class="btn btn-secondary">Cancel</button>
+          <button id="confirmReplaceSession" class="btn btn-primary">Replace</button>
+        </div>
+      </div>
+    </div>
+    <script src="index.js"></script>
+  </body>
+</html>
+
+
+
+// =================================
+// ini adalah isi file popup/style.css
+// =================================
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: #f8f9fa;
+  color: #333;
+  width: 350px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px;
+  position: relative;
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  position: relative;
+  display: inline-block;
+  text-align: center;
+}
+
+.title .byline {
+  font-size: 0.6em;
+  color: rgba(223, 223, 223, 0.8);
+}
+
+.info-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  color: #667eea;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 16px;
+  text-align: center;
+  cursor: help;
+  margin-left: 8px;
+  position: relative;
+  vertical-align: middle;
+}
+
+.info-tooltip {
+  position: absolute;
+  top: 100%;
+  right: -38px;
+  background: rgba(247, 247, 247, 0.95);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  width: 240px;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s,
+    visibility 0.3s;
+  z-index: 1000;
+  margin-top: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.info-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  right: 40px;
+  border: 6px solid transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.9);
+}
+
+.info-icon:hover .info-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.info-tooltip h4 {
+  color: #415bd1;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.info-tooltip p {
+  margin-bottom: 4px;
+}
+
+.info-tooltip p:last-child {
+  margin-bottom: 0;
+}
+
+.current-site-container {
+  display: block;
+  align-items: center;
+}
+
+.current-site {
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  position: relative;
+}
+
+.menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 180px;
+  z-index: 100;
+  display: none;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.menu-dropdown.show {
+  display: block;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #495057;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item .btn-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.content {
+  padding: 6px 12px;
+  flex-grow: 1;
+}
+
+/* Removed actions-top and domain-actions as they're no longer needed */
+
+.view-mode-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.view-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #5a6fd8;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-icon {
+  font-size: 16px;
+}
+
+.sessions-section {
+  margin-top: 10px;
+  position: relative;
+  overflow: visible;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #495057;
+}
+
+.sessions-list {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin-bottom: 0;
+}
+
+.sessions-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.session-item.grid-view {
+  aspect-ratio: 1/1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+  position: relative;
+  overflow: visible;
+}
+
+.custom-tooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.session-item.grid-view.active {
+  background-color: #667eea;
+  color: white;
+}
+
+.session-item.grid-view .session-name {
+  display: none;
+}
+
+.session-item.grid-view .session-order {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.session-item.grid-view .session-actions {
+  display: none;
+}
+
+.no-sessions {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
+}
+
+.session-item {
+  background: white;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.mb-8{
+  margin-bottom: 8px !important;
+}
+
+.session-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.1);
+}
+
+.session-item.active {
+  border-color: #28a745;
+  background: #f8fff9;
+}
+
+.session-item.active::before {
+  color: #28a745;
+}
+
+.session-info {
+  flex: 1;
+}
+
+.session-name {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 4px;
+}
+
+.session-order-badge {
+  display: inline-block;
+  background-color: #667eea;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-right: 5px;
+  font-weight: normal;
+}
+
+.session-meta {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.session-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.session-btn {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s ease;
+}
+
+.session-btn:hover {
+  background: #d9dadb;
+}
+
+.rename-btn {
+  color: #667eea;
+}
+
+.delete-btn {
+  color: #dc3545;
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.show {
+  display: flex;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #495057;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #495057;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+/* Select Dropdown Styles */
+.select-container {
+  margin-bottom: 15px;
+}
+
+.modal-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background-color: #fff;
+  font-size: 14px;
+  color: #495057;
+  cursor: pointer;
+}
+
+.modal-select:focus {
+  border-color: #667eea;
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Tab System Styles */
+.tab-container {
+  width: 100%;
+}
+
+.tab-buttons {
+  display: flex;
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 15px;
+}
+
+.tab-btn {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6c757d;
+  transition: all 0.2s ease;
+  flex: 1;
+  text-align: center;
+}
+
+.tab-btn:hover {
+  color: #667eea;
+}
+
+.tab-btn.active {
+  color: #667eea;
+  border-bottom: 2px solid #667eea;
+}
+
+.tab-content {
+  width: 100%;
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+/* Export/Import modal styling */
+.export-section, .import-section, .import-newtab-section {
+  margin-bottom: 20px;
+  padding: 10px 0;
+}
+
+.info-text {
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 15px;
+  line-height: 1.4;
+}
+
+#importFileInput {
+  margin: 10px 0;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+hr {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid #e9ecef;
+}
+
+.modal-body label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.modal-body input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.modal-footer {
+  padding: 16px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.warning-text {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+/* Loading state */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: " ⏳";
+}
+
+.footer {
+  background: #f8f9fa;
+  color: #6c757d;
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  border-top: 1px solid #dee2e6;
+  position: sticky;
+  bottom: 0;
+}
+
+
+
+// =================================
+// ini adalah isi file popup/index.js
+// =================================
+
+"use strict";
+(() => {
+  // src/shared/utils/domain.ts
+  function extractDomain(hostname) {
+    return hostname.replace(/^www\./, "");
+  }
+  function getDomainFromUrl(url) {
+    try {
+      const urlObj = new URL(url);
+      const domain = extractDomain(urlObj.hostname);
+      const isLocalhost = domain === "localhost" || domain.startsWith("127.");
+      const port = urlObj.port;
+      if (isLocalhost && port) {
+        return `${domain}:${port}`;
+      }
+      return domain;
+    } catch (_) {
+      console.error("Invalid URL:", url);
+      return "";
+    }
+  }
+
+  // src/shared/utils/errorHandling.ts
+  var ExtensionError = class extends Error {
+    constructor(message, code) {
+      super(message);
+      this.code = code;
+      this.name = "ExtensionError";
+    }
+  };
+  function handleError(error, context) {
+    console.error(`Error in ${context}:`, error);
+    if (error instanceof ExtensionError) {
+      return error.message;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return "An unexpected error occurred";
+  }
+
+  // src/popup/utils/constants.ts
+  var CSS_CLASSES = {
+    SHOW: "show",
+    LOADING: "loading",
+    ACTIVE: "active",
+    SESSION_ITEM: "session-item",
+    SESSION_BTN: "session-btn",
+    NO_SESSIONS: "no-sessions"
+  };
+  var UI_TEXT = {
+    NO_SESSIONS: "No sessions saved for this site",
+    UNNAMED_SESSION: "Unnamed Session",
+    LAST_USED: "Last used:",
+    LOADING: "Loading...",
+    SAVE_SUCCESS: "Session saved successfully",
+    SWITCH_SUCCESS: "Session switched successfully",
+    DELETE_SUCCESS: "Session deleted successfully"
+  };
+
+  // src/popup/components/loadingManager.ts
+  var LoadingManager = class {
+    constructor() {
+      this.isLoading = false;
+    }
+    showLoading() {
+      if (!this.isLoading) {
+        document.body.classList.add(CSS_CLASSES.LOADING);
+        this.isLoading = true;
+      }
+    }
+    hideLoading() {
+      if (this.isLoading) {
+        document.body.classList.remove(CSS_CLASSES.LOADING);
+        this.isLoading = false;
+      }
+    }
+    async withLoading(operation) {
+      try {
+        this.showLoading();
+        return await operation();
+      } finally {
+        this.hideLoading();
+      }
+    }
+  };
+
+  // src/popup/utils/dom.ts
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  function getElementByIdSafe(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+      throw new Error(`Element not found with id: ${id}`);
+    }
+    return element;
+  }
+
+  // src/popup/components/modalManager.ts
+  var ModalManager = class {
+    constructor() {
+      this.modals = {
+        save: getElementByIdSafe("saveModal"),
+        rename: getElementByIdSafe("renameModal"),
+        delete: getElementByIdSafe("deleteModal"),
+        error: getElementByIdSafe("errorModal"),
+        about: getElementByIdSafe("aboutModal"),
+        newSessionConfirm: getElementByIdSafe("newSessionConfirmModal"),
+        clearSession: getElementByIdSafe("clearSessionModal"),
+        exportImport: getElementByIdSafe("exportImportModal"),
+        replaceConfirm: getElementByIdSafe("replaceConfirmModal")
+      };
+      this.inputs = {
+        sessionName: getElementByIdSafe("sessionName"),
+        sessionOrder: getElementByIdSafe("sessionOrder"),
+        newSessionName: getElementByIdSafe("newSessionName"),
+        newSessionOrder: getElementByIdSafe("newSessionOrder"),
+        importFileInput: getElementByIdSafe("importFileInput")
+      };
+      this.setupEventListeners();
+      this.setupTabSystem();
+    }
+    setupEventListeners() {
+      const closeButtons = [
+        { id: "closeSaveModal", modal: "save" },
+        { id: "cancelSave", modal: "save" },
+        { id: "closeRenameModal", modal: "rename" },
+        { id: "cancelRename", modal: "rename" },
+        { id: "closeDeleteModal", modal: "delete" },
+        { id: "cancelDelete", modal: "delete" },
+        { id: "closeErrorModal", modal: "error" },
+        { id: "closeErrorModalBtn", modal: "error" },
+        { id: "closeAboutModal", modal: "about" },
+        { id: "closeAboutModalBtn", modal: "about" },
+        { id: "closeNewSessionConfirmModal", modal: "newSessionConfirm" },
+        { id: "cancelNewSession", modal: "newSessionConfirm" },
+        { id: "closeClearSessionModal", modal: "clearSession" },
+        { id: "cancelClearSession", modal: "clearSession" },
+        { id: "closeExportImportModal", modal: "exportImport" },
+        { id: "closeExportImportModalBtn", modal: "exportImport" },
+        { id: "closeReplaceConfirmModal", modal: "replaceConfirm" },
+        { id: "cancelReplaceConfirm", modal: "replaceConfirm" }
+      ];
+      closeButtons.forEach(({ id, modal }) => {
+        getElementByIdSafe(id).addEventListener("click", () => this.hide(modal));
+      });
+      this.inputs.importFileInput.addEventListener("change", () => {
+        const importBtn = getElementByIdSafe("importBtn");
+        importBtn.disabled = !this.inputs.importFileInput.files || this.inputs.importFileInput.files.length === 0;
+      });
+      this.inputs.sessionName.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          getElementByIdSafe("confirmSave").click();
+        }
+      });
+      this.inputs.newSessionName.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          getElementByIdSafe("confirmRename").click();
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          this.hideVisible();
+        }
+        if (e.key === "Enter") {
+          if (this.isVisible("delete")) {
+            e.preventDefault();
+            getElementByIdSafe("confirmDelete").click();
+          }
+          if (this.isVisible("error")) {
+            e.preventDefault();
+            getElementByIdSafe("closeErrorModal").click();
+          }
+        }
+      });
+      Object.entries(this.modals).forEach(([key, modal]) => {
+        modal.addEventListener("click", (e) => {
+          if (e.target === modal) this.hide(key);
+        });
+      });
+    }
+    showSaveModal(defaultName = "Unnamed Session", order) {
+      this.inputs.sessionName.value = defaultName;
+      this.inputs.sessionOrder.value = order.toString();
+      this.show("save");
+      this.inputs.sessionName.focus();
+      this.inputs.sessionName.select();
+    }
+    showRenameModal(currentName, currentOrder) {
+      this.inputs.newSessionName.value = currentName;
+      this.inputs.newSessionOrder.value = currentOrder.toString();
+      this.show("rename");
+      this.inputs.newSessionName.focus();
+      this.inputs.newSessionName.select();
+    }
+    showDeleteModal(sessionName) {
+      const deleteSessionNameEl = document.getElementById("deleteSessionName");
+      if (deleteSessionNameEl) {
+        deleteSessionNameEl.textContent = sessionName;
+      }
+      this.show("delete");
+      this.modals.delete.focus();
+    }
+    showErrorModal(message) {
+      const errorMessageEl = document.getElementById("errorMessage");
+      if (errorMessageEl) {
+        errorMessageEl.textContent = message;
+      }
+      this.show("error");
+      this.modals.error.focus();
+    }
+    showAboutModal() {
+      this.show("about");
+      this.modals.about.focus();
+    }
+    showNewSessionConfirmModal() {
+      this.show("newSessionConfirm");
+      this.modals.newSessionConfirm.focus();
+    }
+    getSaveModalInput() {
+      return {
+        name: this.inputs.sessionName.value.trim(),
+        order: this.inputs.sessionOrder.value
+      };
+    }
+    getRenameModalInput() {
+      return {
+        name: this.inputs.newSessionName.value.trim(),
+        order: this.inputs.newSessionOrder.value
+      };
+    }
+    hideSaveModal() {
+      this.hide("save");
+    }
+    hideRenameModal() {
+      this.hide("rename");
+    }
+    hideDeleteModal() {
+      this.hide("delete");
+    }
+    hideErrorModal() {
+      this.hide("error");
+    }
+    hideAboutModal() {
+      this.hide("about");
+    }
+    hideNewSessionConfirmModal() {
+      this.hide("newSessionConfirm");
+    }
+    hideClearSessionModal() {
+      this.hide("clearSession");
+    }
+    hideExportImportModal() {
+      this.hide("exportImport");
+    }
+    hideReplaceConfirmModal() {
+      this.hide("replaceConfirm");
+    }
+    showClearSessionModal() {
+      this.show("clearSession");
+      this.modals.clearSession.focus();
+    }
+    showExportImportModal() {
+      this.show("exportImport");
+      this.modals.exportImport.focus();
+      this.inputs.importFileInput.value = "";
+      getElementByIdSafe("importBtn").disabled = true;
+    }
+    showReplaceConfirmModal(sessionName) {
+      const replaceSessionNameEl = document.getElementById("replaceSessionName");
+      if (replaceSessionNameEl) {
+        replaceSessionNameEl.textContent = sessionName;
+      }
+      this.show("replaceConfirm");
+      this.modals.replaceConfirm.focus();
+    }
+    getClearSessionOption() {
+      const selectElement = document.getElementById("clearOptionSelect");
+      return selectElement ? selectElement.value : "current";
+    }
+    getExportOption() {
+      const selectElement = document.getElementById("exportOptionSelect");
+      return selectElement ? selectElement.value : "current";
+    }
+    setupTabSystem() {
+      const exportTabBtn = document.getElementById("exportTabBtn");
+      const importTabBtn = document.getElementById("importTabBtn");
+      const importNewTabBtn = document.getElementById("importNewTabBtn");
+      const exportTab = document.getElementById("exportTab");
+      const importTab = document.getElementById("importTab");
+      const importNewTabPane = document.getElementById("importNewTabPane");
+      
+      const activateTab = (tabBtn, tabContent) => {
+        // Deactivate all tabs
+        [exportTabBtn, importTabBtn, importNewTabBtn].forEach(btn => btn?.classList.remove("active"));
+        [exportTab, importTab, importNewTabPane].forEach(tab => tab?.classList.remove("active"));
+        
+        // Activate selected tab
+        tabBtn?.classList.add("active");
+        tabContent?.classList.add("active");
+      };
+      
+      if (exportTabBtn) {
+        exportTabBtn.addEventListener("click", () => {
+          activateTab(exportTabBtn, exportTab);
+        });
+      }
+      
+      if (importTabBtn) {
+        importTabBtn.addEventListener("click", () => {
+          activateTab(importTabBtn, importTab);
+        });
+      }
+      
+      if (importNewTabBtn) {
+        importNewTabBtn.addEventListener("click", () => {
+          activateTab(importNewTabBtn, importNewTabPane);
+        });
+      }
+    }
+    getImportFile() {
+      return this.inputs.importFileInput.files && this.inputs.importFileInput.files.length > 0 ? this.inputs.importFileInput.files[0] : null;
+    }
+    hideAllModals() {
+      this.hideVisible();
+      this.inputs.sessionName.value = "";
+      this.inputs.sessionOrder.value = "";
+      this.inputs.newSessionName.value = "";
+      this.inputs.newSessionOrder.value = "";
+      this.inputs.importFileInput.value = "";
+    }
+    isVisible(modalKey) {
+      return this.modals[modalKey]?.classList.contains(CSS_CLASSES.SHOW) || false;
+    }
+    hideVisible() {
+      Object.entries(this.modals).forEach(([key, modal]) => {
+        if (modal.classList.contains(CSS_CLASSES.SHOW)) {
+          this.hide(key);
+        }
+      });
+    }
+    show(modalKey) {
+      this.modals[modalKey].classList.add(CSS_CLASSES.SHOW);
+    }
+    hide(modalKey) {
+      this.modals[modalKey].classList.remove(CSS_CLASSES.SHOW);
+    }
+  };
+
+  // src/shared/utils/date.ts
+  function formatDate(timestamp) {
+    return new Date(timestamp).toLocaleDateString();
+  }
+
+  // src/popup/components/sessionList.ts
+  var SessionList = class {
+    constructor(container) {
+      this.container = container;
+      this.container.addEventListener("click", this.handleClick.bind(this));
+    }
+    setEventHandlers(handlers) {
+      this.onSessionClick = handlers.onSessionClick;
+      this.onRenameClick = handlers.onRenameClick;
+      this.onDeleteClick = handlers.onDeleteClick;
+    }
+    render(sessions, activeSessions, currentDomain) {
+      const domainSessions = sessions.filter((s) => s.domain === currentDomain).sort((a, b) => a.order - b.order);
+      const activeSessionId = activeSessions[currentDomain];
+      if (domainSessions.length === 0) {
+        this.renderEmptyState();
+        return;
+      }
+      this.renderSessions(domainSessions, activeSessionId);
+      this.setupTooltips();
+    }
+    setupTooltips() {
+      const gridItems = this.container.querySelectorAll(".session-item.grid-view");
+      gridItems.forEach((item) => {
+        const tooltip = item.querySelector(".custom-tooltip");
+        if (tooltip) {
+          item.addEventListener("mouseenter", () => {
+            tooltip.style.opacity = "1";
+          });
+          item.addEventListener("mouseleave", () => {
+            tooltip.style.opacity = "0";
+          });
+        }
+      });
+    }
+    renderEmptyState() {
+      this.container.innerHTML = `<div class="${CSS_CLASSES.NO_SESSIONS}">${UI_TEXT.NO_SESSIONS}</div>`;
+    }
+    renderSessions(sessions, activeSessionId) {
+      const isGridView = this.container.classList.contains("grid-view");
+      const sessionsHtml = sessions.map((session) => {
+        const isActive = session.id === activeSessionId;
+        const lastUsed = formatDate(session.lastUsed);
+        if (isGridView) {
+          return `
+          <div class="${CSS_CLASSES.SESSION_ITEM} grid-view ${isActive ? CSS_CLASSES.ACTIVE : ""}" data-session-id="${session.id}">
+            <div class="session-order">${session.order}</div>
+            <div class="custom-tooltip">${escapeHtml(session.name)}</div>
+          </div>
+        `;
+        }
+        return `
+        <div class="${CSS_CLASSES.SESSION_ITEM} ${isActive ? CSS_CLASSES.ACTIVE : ""} mb-8" data-session-id="${session.id}">
+          <div class="session-info">
+            <div class="session-name"><span class="session-order-badge">#${session.order}</span> ${escapeHtml(session.name)}</div>
+            <div class="session-meta">${UI_TEXT.LAST_USED} ${lastUsed}</div>
+          </div>
+          <div class="session-actions">
+            <button class="${CSS_CLASSES.SESSION_BTN} rename-btn" data-action="rename" data-session-id="${session.id}">
+              ✏️
+            </button>
+            <button class="${CSS_CLASSES.SESSION_BTN} delete-btn" data-action="delete" data-session-id="${session.id}">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `;
+      }).join("");
+      this.container.innerHTML = sessionsHtml;
+    }
+    handleClick(e) {
+      const target = e.target;
+      if (target.classList.contains(CSS_CLASSES.SESSION_BTN)) {
+        e.stopPropagation();
+        const action = target.dataset.action;
+        const sessionId = target.dataset.sessionId;
+        if (!sessionId) return;
+        if (action === "rename" && this.onRenameClick) {
+          this.onRenameClick(sessionId);
+        } else if (action === "delete" && this.onDeleteClick) {
+          this.onDeleteClick(sessionId);
+        }
+        return;
+      }
+      const sessionItem = target.closest(`.${CSS_CLASSES.SESSION_ITEM}`);
+      if (sessionItem && this.onSessionClick) {
+        const sessionId = sessionItem.dataset.sessionId;
+        if (sessionId) {
+          this.onSessionClick(sessionId);
+        }
+      }
+    }
+  };
+
+  // src/popup/utils/defaultValue.ts
+  var storedSessionDefaultValue = {
+    cookies: [],
+    localStorage: {},
+    sessionStorage: {}
+  };
+
+  // src/shared/constants/messages.ts
+  var MESSAGE_ACTIONS = {
+    GET_CURRENT_SESSION: "getCurrentSession",
+    SWITCH_SESSION: "switchSession",
+    CLEAR_SESSION: "clearSession",
+    // GET_CURRENT_DOMAIN removed - now using URL parameters
+    CLEAR_SESSIONS: "clearSessions",
+    EXPORT_SESSIONS: "exportSessions",
+    IMPORT_SESSIONS: "importSessions"
+  };
+
+  // src/shared/constants/storageKeys.ts
+  var STORAGE_KEYS = {
+    SESSIONS: "sessions",
+    ACTIVE_SESSIONS: "activeSessions",
+    VIEW_MODE: "viewMode"
+  };
+
+  // src/shared/utils/idGenerator.ts
+  function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  // src/shared/utils/validation.ts
+  function validateSessionName(name) {
+    const trimmed = name.trim();
+    return trimmed || "Unnamed Session";
+  }
+
+  // src/popup/services/chromeApi.service.ts
+  var ChromeApiService = class {
+    async getCurrentTab() {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length === 0) {
+        throw new Error("No active tab found");
+      }
+      return tabs[0];
+    }
+    async sendMessage(message) {
+      return new Promise((resolve) => {
+        try {
+          chrome.runtime.sendMessage(message, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error("Chrome runtime error:", chrome.runtime.lastError);
+              resolve({
+                success: false,
+                error: chrome.runtime.lastError.message || "Could not establish connection. Receiving end does not exist."
+              });
+            } else if (!response) {
+              console.error("No response received from background script");
+              resolve({
+                success: false,
+                error: "No response received from background script"
+              });
+            } else {
+              resolve(response);
+            }
+          });
+        } catch (error) {
+          console.error("Error sending message:", error);
+          resolve({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      });
+    }
+    async getStorageData(keys) {
+      return chrome.storage.local.get(keys);
+    }
+    async setStorageData(data) {
+      return chrome.storage.local.set(data);
+    }
+  };
+
+  // src/popup/services/popup.service.ts
+  var PopupService = class {
+    constructor() {
+      this.chromeApi = new ChromeApiService();
+      this.state = {
+        currentDomain: "",
+        currentTab: {},
+        sessions: [],
+        activeSessions: {},
+        currentRenameSessionId: "",
+        currentDeleteSessionId: "",
+        viewMode: "list"
+      };
+    }
+    async initialize() {
+      try {
+        this.state.currentTab = await this.chromeApi.getCurrentTab();
+        if (!this.state.currentTab.url) {
+          throw new ExtensionError("Unable to get current tab URL");
+        }
+        this.state.currentDomain = getDomainFromUrl(this.state.currentTab.url);
+        await this.loadStorageData();
+        return { ...this.state };
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.initialize"));
+      }
+    }
+    async saveCurrentSession(name, order) {
+      try {
+        const validatedName = validateSessionName(name);
+        const response = await this.chromeApi.sendMessage({
+          action: MESSAGE_ACTIONS.GET_CURRENT_SESSION,
+          domain: this.state.currentDomain,
+          tabId: this.state.currentTab.id
+        });
+        if (!response.success) {
+          throw new ExtensionError(response.error || "Failed to get current session");
+        }
+        const storedSession = response.data ?? storedSessionDefaultValue;
+        const domainSessions = this.state.sessions.filter((s) => s.domain === this.state.currentDomain);
+        if (order === void 0) {
+          order = domainSessions.length > 0 ? Math.max(...domainSessions.map((s) => s.order || 0)) + 1 : 1;
+        }
+        this.state.sessions.forEach((s) => {
+          if (s.domain === this.state.currentDomain && typeof order === "number" && s.order >= order) {
+            s.order++;
+          }
+        });
+        const newSession = {
+          ...storedSession,
+          id: generateId(),
+          name: validatedName,
+          order,
+          domain: this.state.currentDomain,
+          createdAt: Date.now(),
+          lastUsed: Date.now()
+        };
+        this.state.sessions.push(newSession);
+        this.state.activeSessions[this.state.currentDomain] = newSession.id;
+        await this.saveStorageData();
+        return newSession;
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.saveCurrentSession"));
+      }
+    }
+    async switchToSession(sessionId) {
+      if (!sessionId) {
+        console.error("Invalid session ID provided");
+        throw new ExtensionError("Invalid session ID");
+      }
+      try {
+        console.log(`Attempting to switch to session: ${sessionId}`);
+        const session = this.state.sessions.find((s) => s.id === sessionId);
+        if (!session) {
+          console.error(`Session not found: ${sessionId}`);
+          throw new ExtensionError("Session not found");
+        }
+        if (!this.state.currentTab.id) {
+          console.error("No active tab ID available");
+          throw new ExtensionError("No active tab available");
+        }
+        console.log(`Sending switch session message for domain: ${this.state.currentDomain}, tab: ${this.state.currentTab.id}`);
+        const response = await this.chromeApi.sendMessage({
+          action: MESSAGE_ACTIONS.SWITCH_SESSION,
+          sessionData: session,
+          tabId: this.state.currentTab.id
+        });
+        if (!response) {
+          console.error("No response received from background script");
+          throw new ExtensionError("No response received from background script");
+        }
+        if (!response.success) {
+          console.error("Background script reported error:", response.error);
+          throw new ExtensionError(response.error || "Failed to switch session");
+        }
+        console.log(`Successfully switched to session: ${sessionId}`);
+        this.state.activeSessions[this.state.currentDomain] = sessionId;
+        session.lastUsed = Date.now();
+        await this.saveStorageData();
+        console.log("Session state updated and saved");
+      } catch (error) {
+        console.error("Error in switchToSession:", error);
+        throw new ExtensionError(handleError(error, "PopupService.switchToSession"));
+      }
+    }
+    async createNewSession() {
+      try {
+        const response = await this.chromeApi.sendMessage({
+          action: MESSAGE_ACTIONS.CLEAR_SESSION,
+          domain: this.state.currentDomain,
+          tabId: this.state.currentTab.id
+        });
+        if (!response.success) {
+          throw new ExtensionError(response.error || "Failed to clear session");
+        }
+        delete this.state.activeSessions[this.state.currentDomain];
+        await this.saveStorageData();
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.createNewSession"));
+      }
+    }
+    async renameSession(sessionId, newName, newOrder) {
+      try {
+        const session = this.state.sessions.find((s) => s.id === sessionId);
+        if (!session) {
+          throw new ExtensionError("Session not found");
+        }
+        const oldOrder = session.order;
+        session.name = validateSessionName(newName);
+        if (newOrder !== void 0 && oldOrder !== newOrder) {
+          if (newOrder < oldOrder) {
+            this.state.sessions.forEach((s) => {
+              if (s.id !== sessionId && s.domain === this.state.currentDomain && s.order >= newOrder && s.order < oldOrder) {
+                s.order++;
+              }
+            });
+          } else if (newOrder > oldOrder) {
+            this.state.sessions.forEach((s) => {
+              if (s.id !== sessionId && s.domain === this.state.currentDomain && s.order <= newOrder && s.order > oldOrder) {
+                s.order--;
+              }
+            });
+          }
+          session.order = newOrder;
+        }
+        await this.saveStorageData();
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.renameSession"));
+      }
+    }
+    async replaceSession(sessionId) {
+      try {
+        const session = this.state.sessions.find((s) => s.id === sessionId);
+        if (!session) {
+          throw new ExtensionError("Session not found");
+        }
+        const response = await this.chromeApi.sendMessage({
+          action: MESSAGE_ACTIONS.GET_CURRENT_SESSION,
+          domain: this.state.currentDomain,
+          tabId: this.state.currentTab.id
+        });
+        if (!response.success) {
+          throw new ExtensionError(response.error || "Failed to get current session");
+        }
+        const storedSession = response.data ?? storedSessionDefaultValue;
+        session.cookies = storedSession.cookies;
+        session.localStorage = storedSession.localStorage;
+        session.sessionStorage = storedSession.sessionStorage;
+        session.lastUsed = Date.now();
+        this.state.activeSessions[this.state.currentDomain] = sessionId;
+        await this.saveStorageData();
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.replaceSession"));
+      }
+    }
+    async deleteSession(sessionId) {
+      try {
+        const sessionToDelete = this.state.sessions.find((s) => s.id === sessionId);
+        if (!sessionToDelete) {
+          throw new ExtensionError("Session not found");
+        }
+        const deletedOrder = sessionToDelete.order;
+        const deletedDomain = sessionToDelete.domain;
+        this.state.sessions = this.state.sessions.filter((s) => s.id !== sessionId);
+        this.state.sessions.forEach((s) => {
+          if (s.domain === deletedDomain && s.order > deletedOrder) {
+            s.order--;
+          }
+        });
+        if (this.state.activeSessions[this.state.currentDomain] === sessionId) {
+          delete this.state.activeSessions[this.state.currentDomain];
+        }
+        await this.saveStorageData();
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.deleteSession"));
+      }
+    }
+    getSession(sessionId) {
+      return this.state.sessions.find((s) => s.id === sessionId);
+    }
+    getState() {
+      return { ...this.state };
+    }
+    setState(newState) {
+      this.state = { ...this.state, ...newState };
+    }
+    async loadStorageData() {
+      try {
+        const result = await this.chromeApi.getStorageData([
+          STORAGE_KEYS.SESSIONS,
+          STORAGE_KEYS.ACTIVE_SESSIONS,
+          STORAGE_KEYS.VIEW_MODE
+        ]);
+        this.state.sessions = result[STORAGE_KEYS.SESSIONS] || [];
+        this.state.activeSessions = result[STORAGE_KEYS.ACTIVE_SESSIONS] || {};
+        this.state.viewMode = result[STORAGE_KEYS.VIEW_MODE] || "list";
+      } catch (error) {
+        console.error("Error loading storage data:", error);
+        this.state.sessions = [];
+        this.state.activeSessions = {};
+        this.state.viewMode = "list";
+      }
+    }
+    async saveStorageData() {
+      await this.chromeApi.setStorageData({
+        [STORAGE_KEYS.SESSIONS]: this.state.sessions,
+        [STORAGE_KEYS.ACTIVE_SESSIONS]: this.state.activeSessions,
+        [STORAGE_KEYS.VIEW_MODE]: this.state.viewMode
+      });
+    }
+    async setViewMode(mode) {
+      this.state.viewMode = mode;
+      await this.saveStorageData();
+    }
+    async clearSessions(clearOption) {
+      try {
+        if (clearOption === "current") {
+          this.state.sessions = this.state.sessions.filter((s) => s.domain !== this.state.currentDomain);
+          delete this.state.activeSessions[this.state.currentDomain];
+          const response = await this.chromeApi.sendMessage({
+            action: MESSAGE_ACTIONS.CLEAR_SESSION,
+            domain: this.state.currentDomain,
+            tabId: this.state.currentTab.id
+          });
+          if (!response.success) {
+            throw new ExtensionError(response.error || "Failed to clear current session");
+          }
+        } else if (clearOption === "all") {
+          this.state.sessions = [];
+          this.state.activeSessions = {};
+          const response = await this.chromeApi.sendMessage({
+            action: MESSAGE_ACTIONS.CLEAR_SESSION,
+            domain: this.state.currentDomain,
+            tabId: this.state.currentTab.id
+          });
+          if (!response.success) {
+            throw new ExtensionError(response.error || "Failed to clear current session");
+          }
+        }
+        await this.saveStorageData();
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.clearSessions"));
+      }
+    }
+    exportSessions(exportOption) {
+      try {
+        let sessionsToExport = [];
+        if (exportOption === "current") {
+          sessionsToExport = this.state.sessions.filter((s) => s.domain === this.state.currentDomain);
+        } else if (exportOption === "all") {
+          sessionsToExport = [...this.state.sessions];
+        }
+        const exportData = {
+          sessions: sessionsToExport,
+          exportDate: (/* @__PURE__ */ new Date()).toISOString(),
+          version: "1.0.0"
+        };
+        return JSON.stringify(exportData, null, 2);
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.exportSessions"));
+      }
+    }
+    async importSessions(jsonData) {
+      try {
+        const importData = JSON.parse(jsonData);
+        if (!importData || !Array.isArray(importData.sessions)) {
+          throw new ExtensionError("Invalid import data format");
+        }
+        const importedSessions = importData.sessions;
+        for (const session of importedSessions) {
+          if (!session.id || !session.domain || !session.name) {
+            throw new ExtensionError("Invalid session data in import file");
+          }
+        }
+        const existingIds = new Set(this.state.sessions.map((s) => s.id));
+        importedSessions.forEach((session) => {
+          if (existingIds.has(session.id)) {
+            session.id = generateId();
+          }
+          existingIds.add(session.id);
+        });
+        this.state.sessions = [...this.state.sessions, ...importedSessions];
+        await this.saveStorageData();
+        return;
+      } catch (error) {
+        throw new ExtensionError(handleError(error, "PopupService.importSessions"));
+      }
+    }
+  };
+
+  // src/popup/index.ts
+  var PopupController = class {
+    constructor() {
+      this.loadingManager = new LoadingManager();
+      this.modalManager = new ModalManager();
+      this.popupService = new PopupService();
+      this.currentSiteElement = getElementByIdSafe("currentSite");
+      this.saveBtn = getElementByIdSafe("saveBtn");
+      this.newSessionBtn = getElementByIdSafe("newSessionBtn");
+      this.clearSessionBtn = getElementByIdSafe("clearSessionBtn");
+      this.exportImportBtn = getElementByIdSafe("exportImportBtn");
+      this.viewModeBtn = getElementByIdSafe("viewModeBtn");
+      this.menuBtn = getElementByIdSafe("menuBtn");
+      this.menuDropdown = getElementByIdSafe("menuDropdown");
+      this.aboutBtn = getElementByIdSafe("aboutBtn");
+      this.sessionsListElement = getElementByIdSafe("sessionsList");
+      this.sessionList = new SessionList(this.sessionsListElement);
+      this.setupSessionListHandlers();
+      this.setupEventListeners();
+    }
+    async initialize() {
+      try {
+        this.modalManager.hideAllModals();
+        this.state = await this.loadingManager.withLoading(async () => {
+          return await this.popupService.initialize();
+        });
+        this.currentSiteElement.textContent = this.state.currentDomain;
+        if (this.state.viewMode === "grid") {
+          this.switchToGridView(false);
+        } else {
+          this.switchToListView(false);
+        }
+        this.renderSessionsList();
+      } catch (error) {
+        this.showError(handleError(error, "PopupController.initialize"));
+      }
+    }
+    getServiceInstance() {
+      return this.popupService;
+    }
+    setupEventListeners() {
+      this.saveBtn.addEventListener("click", () => this.handleSaveClick());
+      this.newSessionBtn.addEventListener("click", () => this.handleNewSessionConfirmClick());
+      this.clearSessionBtn.addEventListener("click", () => this.handleClearSessionClick());
+      this.exportImportBtn.addEventListener("click", () => this.handleExportImportClick());
+      this.viewModeBtn.addEventListener("click", () => this.toggleViewMode());
+      this.menuBtn.addEventListener("click", () => this.toggleMenu());
+      this.aboutBtn.addEventListener("click", () => this.handleAboutClick());
+      document.addEventListener("click", (e) => {
+        if (!this.menuBtn.contains(e.target) && !this.menuDropdown.contains(e.target)) {
+          this.menuDropdown.classList.remove("show");
+        }
+      });
+      getElementByIdSafe("confirmSave").addEventListener("click", () => this.handleConfirmSave());
+      getElementByIdSafe("confirmRename").addEventListener("click", () => this.handleConfirmRename());
+      getElementByIdSafe("confirmDelete").addEventListener("click", () => this.handleConfirmDelete());
+      getElementByIdSafe("replaceSessionBtn").addEventListener("click", () => this.handleReplaceSessionClick());
+      getElementByIdSafe("confirmReplaceSession").addEventListener("click", () => this.handleReplaceSession());
+      getElementByIdSafe("confirmNewSession").addEventListener("click", () => this.handleNewSessionClick());
+      getElementByIdSafe("confirmClearSession").addEventListener("click", () => this.handleConfirmClearSession());
+      getElementByIdSafe("exportBtn").addEventListener("click", () => this.handleExport());
+      getElementByIdSafe("importBtn").addEventListener("click", () => this.handleImport());
+      getElementByIdSafe("openImportTabBtn").addEventListener("click", () => this.handleOpenImportTab());
+    }
+    setupSessionListHandlers() {
+      this.sessionList.setEventHandlers({
+        onSessionClick: (sessionId) => this.handleSessionSwitch(sessionId),
+        onRenameClick: (sessionId) => this.handleRenameClick(sessionId),
+        onDeleteClick: (sessionId) => this.handleDeleteClick(sessionId)
+      });
+    }
+    async handleSaveClick() {
+      const state = this.popupService.getState();
+      const currentDomain = state.currentDomain;
+      const domainSessions = state.sessions.filter((s) => s.domain === currentDomain);
+      const nextOrder = domainSessions.length > 0 ? Math.max(...domainSessions.map((s) => s.order || 0)) + 1 : 1;
+      this.modalManager.showSaveModal("", nextOrder);
+    }
+    async handleConfirmSave() {
+      try {
+        const { name, order } = this.modalManager.getSaveModalInput();
+        await this.loadingManager.withLoading(async () => {
+          const orderNum = order ? parseInt(order, 10) : void 0;
+          await this.popupService.saveCurrentSession(name, orderNum);
+        });
+        this.modalManager.hideSaveModal();
+        this.renderSessionsList();
+      } catch (error) {
+        this.showError(handleError(error, "save session"));
+      }
+    }
+    async handleNewSessionClick() {
+      try {
+        await this.loadingManager.withLoading(async () => {
+          await this.popupService.createNewSession();
+        });
+        this.renderSessionsList();
+      } catch (error) {
+        this.showError(handleError(error, "create new session"));
+      }
+    }
+    async handleSessionSwitch(sessionId) {
+      if (!sessionId) {
+        this.showError("Invalid session ID");
+        return;
+      }
+      try {
+        console.log("Switching to session:", sessionId);
+        await this.loadingManager.withLoading(async () => {
+          await this.popupService.switchToSession(sessionId);
+        });
+        console.log("Session switch completed successfully");
+        this.renderSessionsList();
+      } catch (error) {
+        console.error("Error switching session:", error);
+        const errorMessage = handleError(error, "switch session");
+        if (errorMessage.includes("Receiving end does not exist")) {
+          this.showError("Connection to background service failed. Please try reloading the extension.");
+        } else {
+          this.showError(errorMessage);
+        }
+      }
+    }
+    handleRenameClick(sessionId) {
+      const session = this.popupService.getSession(sessionId);
+      if (session) {
+        this.popupService.setState({ currentRenameSessionId: sessionId });
+        this.modalManager.showRenameModal(session.name, session.order);
+      }
+    }
+    async handleConfirmRename() {
+      try {
+        const { name, order } = this.modalManager.getRenameModalInput();
+        const sessionId = this.popupService.getState().currentRenameSessionId;
+        if (name && order && sessionId) {
+          const orderNum = parseInt(order, 10);
+          await this.popupService.renameSession(sessionId, name, orderNum);
+          this.renderSessionsList();
+        }
+        this.modalManager.hideRenameModal();
+      } catch (error) {
+        this.showError(handleError(error, "rename session"));
+      }
+    }
+    handleReplaceSessionClick() {
+      try {
+        const sessionId = this.popupService.getState().currentRenameSessionId;
+        if (sessionId) {
+          const session = this.popupService.getSession(sessionId);
+          if (session) {
+            this.modalManager.showReplaceConfirmModal(session.name);
+          }
+        }
+        return Promise.resolve();
+      } catch (error) {
+        this.showError(handleError(error, "prepare replace session"));
+        return Promise.resolve();
+      }
+    }
+    async handleReplaceSession() {
+      try {
+        const sessionId = this.popupService.getState().currentRenameSessionId;
+        if (sessionId) {
+          await this.loadingManager.withLoading(async () => {
+            await this.popupService.replaceSession(sessionId);
+          });
+          this.renderSessionsList();
+        }
+        this.modalManager.hideReplaceConfirmModal();
+        this.modalManager.hideRenameModal();
+      } catch (error) {
+        this.showError(handleError(error, "replace session"));
+      }
+    }
+    handleDeleteClick(sessionId) {
+      const session = this.popupService.getSession(sessionId);
+      if (session) {
+        this.popupService.setState({ currentDeleteSessionId: sessionId });
+        this.modalManager.showDeleteModal(session.name);
+      }
+    }
+    async handleConfirmDelete() {
+      try {
+        const sessionId = this.popupService.getState().currentDeleteSessionId;
+        if (sessionId) {
+          await this.popupService.deleteSession(sessionId);
+          this.renderSessionsList();
+        }
+        this.modalManager.hideDeleteModal();
+      } catch (error) {
+        this.showError(handleError(error, "delete session"));
+      }
+    }
+    switchToListView(savePreference = true) {
+      this.sessionsListElement.classList.remove("grid-view");
+      this.viewModeBtn.textContent = "Grid";
+      if (savePreference) {
+        this.popupService.setViewMode("list");
+      }
+      this.renderSessionsList();
+    }
+    switchToGridView(savePreference = true) {
+      this.sessionsListElement.classList.add("grid-view");
+      this.viewModeBtn.textContent = "List";
+      if (savePreference) {
+        this.popupService.setViewMode("grid");
+      }
+      this.renderSessionsList();
+    }
+    toggleViewMode() {
+      const isGridView = this.sessionsListElement.classList.contains("grid-view");
+      if (isGridView) {
+        this.switchToListView();
+      } else {
+        this.switchToGridView();
+      }
+    }
+    toggleMenu() {
+      this.menuDropdown.classList.toggle("show");
+    }
+    handleAboutClick() {
+      this.modalManager.showAboutModal();
+      this.menuDropdown.classList.remove("show");
+    }
+    handleNewSessionConfirmClick() {
+      this.modalManager.showNewSessionConfirmModal();
+      this.menuDropdown.classList.remove("show");
+    }
+    renderSessionsList() {
+      const state = this.popupService.getState();
+      this.sessionList.render(state.sessions, state.activeSessions, state.currentDomain);
+    }
+    showError(message) {
+      console.error("Popup error:", message);
+      this.modalManager.showErrorModal(message);
+    }
+    handleClearSessionClick() {
+      this.modalManager.showClearSessionModal();
+      this.menuDropdown.classList.remove("show");
+    }
+    async handleConfirmClearSession() {
+      try {
+        const clearOption = this.modalManager.getClearSessionOption();
+        await this.loadingManager.withLoading(async () => {
+          await this.popupService.clearSessions(clearOption);
+        });
+        this.modalManager.hideClearSessionModal();
+        this.renderSessionsList();
+      } catch (error) {
+        this.showError(handleError(error, "clear sessions"));
+      }
+    }
+    handleExportImportClick() {
+      this.modalManager.showExportImportModal();
+      this.menuDropdown.classList.remove("show");
+    }
+    handleExport() {
+      try {
+        const exportOption = this.modalManager.getExportOption();
+        const jsonData = this.popupService.exportSessions(exportOption);
+        const blob = new Blob([jsonData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `session-switcher-export-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+      } catch (error) {
+        this.showError(handleError(error, "export sessions"));
+      }
+    }
+    async handleImport() {
+      try {
+        const file = this.modalManager.getImportFile();
+        if (!file) {
+          this.showError("No file selected");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const jsonData = e.target?.result;
+            await this.loadingManager.withLoading(async () => {
+              await this.popupService.importSessions(jsonData);
+            });
+            this.modalManager.hideExportImportModal();
+            this.renderSessionsList();
+          } catch (error) {
+            this.showError(handleError(error, "import sessions"));
+          }
+        };
+        reader.onerror = () => {
+          this.showError("Error reading file");
+        };
+        reader.readAsText(file);
+      } catch (error) {
+        this.showError(handleError(error, "import sessions"));
+      }
+    }
+    async handleOpenImportTab() {
+      try {
+        // Membuat tab baru dengan halaman import khusus
+        await chrome.tabs.create({
+          url: chrome.runtime.getURL("popup/import.html"),
+          active: true
+        });
+        this.modalManager.hideExportImportModal();
+      } catch (error) {
+        this.showError(handleError(error, "open import tab"));
+      }
+    }
+  };
+  document.addEventListener("DOMContentLoaded", async () => {
+    console.log("Session Switcher popup loaded");
+    const controller = new PopupController();
+    await controller.initialize();
+    const service = controller.getServiceInstance();
+    const state = service.getState();
+    let currentDomain = state.currentDomain;
+    const tabActivatedListener = async (activeInfo) => {
+      const tab = await chrome.tabs.get(activeInfo.tabId);
+      if (tab.url) {
+        const newDomain = getDomainFromUrl(tab.url);
+        if (newDomain !== currentDomain) {
+          currentDomain = newDomain;
+          await controller.initialize();
+        }
+      }
+    };
+    const tabUpdatedListener = async (_, changeInfo, tab) => {
+      if (changeInfo.status === "complete" && tab.url) {
+        const newDomain = getDomainFromUrl(tab.url);
+        if (newDomain !== currentDomain) {
+          currentDomain = newDomain;
+          await controller.initialize();
+        }
+      }
+    };
+    chrome.tabs.onActivated.addListener(tabActivatedListener);
+    chrome.tabs.onUpdated.addListener(tabUpdatedListener);
+    const cleanup = () => {
+      chrome.tabs.onActivated.removeListener(tabActivatedListener);
+      chrome.tabs.onUpdated.removeListener(tabUpdatedListener);
+    };
+    window.addEventListener("beforeunload", cleanup);
+    window.addEventListener("unload", cleanup);
+  });
+})();
+
+
+
+// =================================
+// ini adalah isi file popup/import.html
+// =================================
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Sessions - Session Switcher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .import-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 600px;
+            overflow: hidden;
+        }
+        
+        .import-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .import-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .import-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .import-content {
+            padding: 40px;
+        }
+        
+        .drag-drop-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+        }
+        
+        .drag-drop-area:hover {
+            background: #eef2ff;
+            border-color: #764ba2;
+        }
+        
+        .drag-drop-area.drag-over {
+            background: #eef2ff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .drag-drop-area h3 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        
+        .drag-drop-area p {
+            color: #6c757d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .browse-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-block;
+        }
+        
+        .browse-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-info {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .file-info.show {
+            display: block;
+        }
+        
+        .file-info h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .file-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .file-size {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .preview-info {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+            font-size: 14px;
+            color: #6c757d;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .message.show {
+            display: block;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .message p {
+            margin: 0;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="import-container">
+        <div class="import-header">
+            <h1>Import Sessions</h1>
+            <p>Upload your session backup file to restore your saved sessions</p>
+        </div>
+        
+        <div class="import-content">
+            <div class="drag-drop-area" id="dragDropArea">
+                <div class="upload-icon">📁</div>
+                <h3>Drop your JSON file here</h3>
+                <p>Or click to browse your computer</p>
+                <button class="browse-btn" id="browseBtn">Browse Files</button>
+                <input type="file" id="fileInput" class="file-input" accept=".json">
+            </div>
+            
+            <div class="file-info" id="fileInfo">
+                <h4>Selected File</h4>
+                <div class="file-details">
+                    <span class="file-name" id="fileName"></span>
+                    <span class="file-size" id="fileSize"></span>
+                </div>
+                <div class="preview-info" id="previewInfo">
+                    Loading file preview...
+                </div>
+                
+                <div class="stats" id="stats" style="display: none;">
+                    <div class="stat-box">
+                        <div class="stat-value" id="totalSessions">0</div>
+                        <div class="stat-label">Total Sessions</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="uniqueDomains">0</div>
+                        <div class="stat-label">Domains</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="message" id="message"></div>
+            
+            <div class="actions">
+                <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button class="btn btn-primary" id="importBtn" disabled>
+                    <span class="loading" style="display: none;"></span>
+                    Import Sessions
+                </button>
+            </div>
+            
+            <div class="back-link">
+                <a href="#" id="backLink">← Back to Session Switcher</a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="import.js"></script>
+</body>
+</html>
+
+
+
+// =================================
+// ini adalah isi file popup/import.js
+// =================================
+
+"use strict";
+
+class ImportManager {
+    constructor() {
+        this.selectedFile = null;
+        this.fileData = null;
+        this.initializeElements();
+        this.setupEventListeners();
+    }
+
+    initializeElements() {
+        this.dragDropArea = document.getElementById('dragDropArea');
+        this.fileInput = document.getElementById('fileInput');
+        this.browseBtn = document.getElementById('browseBtn');
+        this.fileInfo = document.getElementById('fileInfo');
+        this.fileName = document.getElementById('fileName');
+        this.fileSize = document.getElementById('fileSize');
+        this.previewInfo = document.getElementById('previewInfo');
+        this.stats = document.getElementById('stats');
+        this.totalSessions = document.getElementById('totalSessions');
+        this.uniqueDomains = document.getElementById('uniqueDomains');
+        this.message = document.getElementById('message');
+        this.importBtn = document.getElementById('importBtn');
+        this.cancelBtn = document.getElementById('cancelBtn');
+        this.backLink = document.getElementById('backLink');
+    }
+
+    setupEventListeners() {
+        // Drag and drop events
+        this.dragDropArea.addEventListener('dragover', this.handleDragOver.bind(this));
+        this.dragDropArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+        this.dragDropArea.addEventListener('drop', this.handleDrop.bind(this));
+
+        // Click events
+        this.browseBtn.addEventListener('click', () => this.fileInput.click());
+        this.fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+
+        // Button events
+        this.importBtn.addEventListener('click', this.handleImport.bind(this));
+        this.cancelBtn.addEventListener('click', this.handleCancel.bind(this));
+        this.backLink.addEventListener('click', this.handleBack.bind(this));
+    }
+
+    handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.dragDropArea.classList.add('drag-over');
+    }
+
+    handleDragLeave(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.dragDropArea.classList.remove('drag-over');
+    }
+
+    handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.dragDropArea.classList.remove('drag-over');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            this.processFile(files[0]);
+        }
+    }
+
+    handleFileSelect(e) {
+        const files = e.target.files;
+        if (files.length > 0) {
+            this.processFile(files[0]);
+        }
+    }
+
+    async processFile(file) {
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            this.showMessage('Please select a JSON file', 'error');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            this.showMessage('File too large (max 10MB)', 'error');
+            return;
+        }
+
+        this.selectedFile = file;
+
+        // Update file info display
+        this.fileName.textContent = file.name;
+        this.fileSize.textContent = this.formatFileSize(file.size);
+
+        try {
+            const text = await file.text();
+            this.fileData = JSON.parse(text);
+
+            if (!this.validateFileData(this.fileData)) {
+                throw new Error('Invalid session data format. File must contain a "sessions" array.');
+            }
+
+            this.updatePreview();
+            this.fileInfo.classList.add('show');
+            this.importBtn.disabled = false;
+            this.showMessage('File loaded successfully', 'success');
+
+        } catch (error) {
+            console.error('Error processing file:', error);
+            this.showMessage(`Error: ${error.message}`, 'error');
+            this.resetFileSelection();
+        }
+    }
+
+    validateFileData(data) {
+        if (!data || typeof data !== 'object') {
+            return false;
+        }
+
+        if (!Array.isArray(data.sessions)) {
+            return false;
+        }
+
+        if (data.sessions.length === 0) {
+            return false;
+        }
+
+        // Validate each session has required fields
+        for (const session of data.sessions) {
+            if (!session.id || !session.name || !session.domain) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    updatePreview() {
+        if (!this.fileData) return;
+
+        const sessions = this.fileData.sessions;
+        const domains = new Set(sessions.map(s => s.domain));
+
+        // Update stats
+        this.totalSessions.textContent = sessions.length;
+        this.uniqueDomains.textContent = domains.size;
+        this.stats.style.display = 'grid';
+
+        // Create preview text
+        let previewText = 'Session data preview:\n\n';
+
+        // Show first 3 sessions as preview
+        sessions.slice(0, 3).forEach((session, index) => {
+            previewText += `${index + 1}. ${session.name}\n`;
+            previewText += `   Domain: ${session.domain}\n`;
+            previewText += `   Created: ${new Date(session.createdAt || Date.now()).toLocaleDateString()}\n\n`;
+        });
+
+        if (sessions.length > 3) {
+            previewText += `... and ${sessions.length - 3} more sessions`;
+        }
+
+        this.previewInfo.textContent = previewText;
+    }
+
+
+    // Ganti fungsi handleImport dengan:
+    async handleImport() {
+        if (!this.selectedFile || !this.fileData) {
+            this.showMessage('No file selected', 'error');
+            return;
+        }
+
+        this.showLoading(true);
+        this.showMessage('Importing sessions...', 'warning');
+
+        try {
+            // Coba beberapa approach berbeda
+            let response;
+
+            // Approach 1: Direct message
+            response = await this.sendMessageToBackground({
+                action: 'IMPORT_SESSIONS',
+                data: JSON.stringify(this.fileData)
+            });
+
+            // Approach 2: Coba dengan action yang berbeda
+            if (!response || !response.success) {
+                response = await this.sendMessageToBackground({
+                    action: 'importSessions',  // lowercase
+                    data: JSON.stringify(this.fileData)
+                });
+            }
+
+            // Approach 3: Coba dengan chrome.storage langsung
+            if (!response || !response.success) {
+                console.log('Trying direct storage access...');
+                await this.importDirectly();
+                response = { success: true };
+            }
+
+            if (response && response.success) {
+                this.showMessage(`Successfully imported ${this.fileData.sessions.length} sessions!`, 'success');
+                this.importBtn.disabled = true;
+
+                setTimeout(() => {
+                    window.close();
+                }, 3000);
+            } else {
+                const errorMsg = response ? response.error : 'No response from extension';
+                throw new Error(errorMsg || 'Import failed');
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            this.showMessage(`Import failed: ${error.message}`, 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async importDirectly() {
+        return new Promise((resolve, reject) => {
+            chrome.storage.local.get(['sessions'], (result) => {
+                try {
+                    const currentSessions = result.sessions || [];
+                    const importedSessions = this.fileData.sessions;
+
+                    // Generate new IDs untuk semua session yang diimport
+                    const sessionsWithNewIds = importedSessions.map((session) => ({
+                        ...session,
+                        id: Date.now().toString(36) + Math.random().toString(36).substr(2)
+                    }));
+
+                    const mergedSessions = [...currentSessions, ...sessionsWithNewIds];
+
+                    chrome.storage.local.set({ sessions: mergedSessions }, () => {
+                        if (chrome.runtime.lastError) {
+                            reject(chrome.runtime.lastError);
+                        } else {
+                            resolve();
+                        }
+                    });
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    async sendMessageToBackground(message) {
+        return new Promise((resolve) => {
+            chrome.runtime.sendMessage(message, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Runtime error:', chrome.runtime.lastError);
+                    resolve({
+                        success: false,
+                        error: chrome.runtime.lastError.message || 'Could not connect to extension'
+                    });
+                    return;
+                }
+                resolve(response || { success: false, error: 'No response received' });
+            });
+        });
+    }
+
+    handleCancel() {
+        this.resetFileSelection();
+    }
+
+    handleBack(e) {
+        if (e) e.preventDefault();
+        window.close();
+    }
+
+    resetFileSelection() {
+        this.selectedFile = null;
+        this.fileData = null;
+        this.fileInput.value = '';
+        this.fileInfo.classList.remove('show');
+        this.importBtn.disabled = true;
+        this.message.classList.remove('show');
+        this.stats.style.display = 'none';
+    }
+
+    showMessage(text, type) {
+        this.message.textContent = text;
+        this.message.className = 'message ' + type;
+        this.message.classList.add('show');
+
+        // Auto-hide success messages after 5 seconds
+        if (type === 'success') {
+            setTimeout(() => {
+                this.message.classList.remove('show');
+            }, 5000);
+        }
+    }
+
+    showLoading(show) {
+        const loading = this.importBtn.querySelector('.loading');
+        if (show) {
+            loading.style.display = 'inline-block';
+            this.importBtn.disabled = true;
+        } else {
+            loading.style.display = 'none';
+            if (this.fileData) {
+                this.importBtn.disabled = false;
+            }
+        }
+    }
+
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new ImportManager();
+});
+
+
+
+// =================================
+// ini adalah isi file background/index.js
+// =================================
+
+"use strict";
+var SessionSwitcher = (() => {
+  // src/shared/constants/storageKeys.ts
+  var STORAGE_KEYS = {
+    SESSIONS: "sessions",
+    ACTIVE_SESSIONS: "activeSessions",
+    VIEW_MODE: "viewMode"
+  };
+
+  // src/shared/utils/errorHandling.ts
+  var ExtensionError = class extends Error {
+    constructor(message, code) {
+      super(message);
+      this.code = code;
+      this.name = "ExtensionError";
+    }
+  };
+  function handleError(error, context) {
+    console.error(`Error in ${context}:`, error);
+    if (error instanceof ExtensionError) {
+      return error.message;
+    }
+    if (error instanceof Error) {
+      return error.message;
+    }
+    return "An unexpected error occurred";
+  }
+
+  // src/background/handlers/cookie.handler.ts
+  var CookieHandler = class {
+    async getCookiesForDomain(domain) {
+      try {
+        const stores = await chrome.cookies.getAllCookieStores();
+        const allCookies = [];
+        const currentDomain = domain.split(":")[0];
+        for (const store of stores) {
+          const cookies = await chrome.cookies.getAll({ storeId: store.id });
+          const domainCookies = cookies.filter((cookie) => {
+            const slicedCookieDomain = cookie.domain.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
+            return slicedCookieDomain === currentDomain || slicedCookieDomain === `www.${currentDomain}` || currentDomain.endsWith(slicedCookieDomain);
+          });
+          allCookies.push(...domainCookies);
+        }
+        return allCookies;
+      } catch (error) {
+        console.error("Error getting cookies for domain:", domain, error);
+        return [];
+      }
+    }
+    async clearCookiesForDomain(domain) {
+      const cookies = await this.getCookiesForDomain(domain);
+      const clearPromises = cookies.map(async (cookie) => {
+        try {
+          await chrome.cookies.remove({
+            url: this.buildCookieUrl(cookie, domain),
+            name: cookie.name,
+            storeId: cookie.storeId
+          });
+        } catch (error) {
+          console.warn("Failed to remove cookie:", cookie.name, error);
+        }
+      });
+      await Promise.all(clearPromises);
+    }
+    async restoreCookies(cookies, domain) {
+      if (!cookies || !Array.isArray(cookies)) {
+        console.error("Invalid cookies array provided:", cookies);
+        return;
+      }
+      if (!domain) {
+        console.error("Invalid domain provided for cookie restoration");
+        return;
+      }
+      console.log(`Restoring ${cookies.length} cookies for domain: ${domain}`);
+      let successCount = 0;
+      let failureCount = 0;
+      const restorePromises = cookies.map(async (cookie) => {
+        if (!cookie || !cookie.name) {
+          console.warn("Skipping invalid cookie:", cookie);
+          failureCount++;
+          return;
+        }
+        try {
+          const cookieDetails = this.prepareCookieForRestore(cookie, domain);
+          await chrome.cookies.set(cookieDetails);
+          successCount++;
+        } catch (error) {
+          failureCount++;
+          console.warn(`Failed to restore cookie: ${cookie.name}`, error);
+        }
+      });
+      await Promise.all(restorePromises);
+      console.log(`Cookie restoration complete - Success: ${successCount}, Failed: ${failureCount}`);
+    }
+    buildCookieUrl(cookie, fallbackDomain) {
+      const protocol = cookie.secure ? "https" : "http";
+      let domain = cookie.domain;
+      if (domain.startsWith(".")) {
+        domain = domain.slice(1);
+      }
+      if (!domain && fallbackDomain) {
+        domain = fallbackDomain;
+      }
+      if (!domain) {
+        throw new Error(`Invalid domain for cookie ${cookie.name}: ${cookie.domain}`);
+      }
+      const path = cookie.path || "/";
+      return `${protocol}://${domain}${path}`;
+    }
+    prepareCookieForRestore(cookie, fallbackDomain) {
+      const url = this.buildCookieUrl(cookie, fallbackDomain);
+      const cookieDetails = {
+        url,
+        name: cookie.name,
+        value: cookie.value,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        storeId: cookie.storeId
+      };
+      if (cookie.domain && cookie.domain.startsWith(".")) {
+        cookieDetails.domain = cookie.domain;
+      }
+      if (!cookie.session && cookie.expirationDate) {
+        cookieDetails.expirationDate = cookie.expirationDate;
+      }
+      if (cookie.sameSite && cookie.sameSite !== "unspecified") {
+        cookieDetails.sameSite = cookie.sameSite;
+      }
+      return cookieDetails;
+    }
+  };
+
+  // src/background/services/storageData.service.ts
+  function extractStorageData() {
+    try {
+      const localStorageData = {};
+      const sessionStorageData = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          const value = localStorage.getItem(key);
+          if (value !== null) {
+            localStorageData[key] = value;
+          }
+        }
+      }
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) {
+          const value = sessionStorage.getItem(key);
+          if (value !== null) {
+            sessionStorageData[key] = value;
+          }
+        }
+      }
+      return {
+        localStorage: localStorageData,
+        sessionStorage: sessionStorageData
+      };
+    } catch (error) {
+      console.error("Error extracting storage data:", error);
+      return { localStorage: {}, sessionStorage: {} };
+    }
+  }
+  function injectStorageData(localData, sessionData) {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      Object.entries(localData).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+      Object.entries(sessionData).forEach(([key, value]) => {
+        sessionStorage.setItem(key, value);
+      });
+      return true;
+    } catch (error) {
+      console.error("Error injecting storage data:", error);
+      return false;
+    }
+  }
+  function clearStorage() {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+      return true;
+    } catch (error) {
+      console.error("Error clearing storage:", error);
+      return false;
+    }
+  }
+
+  // src/background/handlers/storage.handler.ts
+  var StorageHandler = class {
+    async getStorageData(tabId) {
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId },
+          func: extractStorageData
+        });
+        return results?.[0]?.result || { localStorage: {}, sessionStorage: {} };
+      } catch (error) {
+        console.error("Error getting storage data:", error);
+        return { localStorage: {}, sessionStorage: {} };
+      }
+    }
+    async restoreStorageData(tabId, data) {
+      if (!tabId) {
+        console.error("Invalid tab ID for restoring storage data:", tabId);
+        throw new ExtensionError("Invalid tab ID for restoring storage data");
+      }
+      if (!data || !data.localStorage && !data.sessionStorage) {
+        console.warn("Empty storage data provided for restoration");
+      }
+      console.log(`Restoring storage data for tab ${tabId}:`, {
+        localStorageKeys: data.localStorage ? Object.keys(data.localStorage).length : 0,
+        sessionStorageKeys: data.sessionStorage ? Object.keys(data.sessionStorage).length : 0
+      });
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId },
+          func: injectStorageData,
+          args: [data.localStorage || {}, data.sessionStorage || {}]
+        });
+        if (!results || results.length === 0 || results[0].result !== true) {
+          console.error("Storage data injection failed:", results);
+          throw new ExtensionError("Failed to inject storage data into the page");
+        }
+        console.log("Storage data successfully restored");
+      } catch (error) {
+        console.error("Error restoring storage data:", error);
+        throw new ExtensionError(`Failed to restore storage data: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    async clearStorageData(tabId) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          func: clearStorage
+        });
+      } catch (error) {
+        throw new ExtensionError(`Failed to clear storage data: ${error}`);
+      }
+    }
+  };
+
+  // src/background/handlers/session.handler.ts
+  var SessionHandler = class {
+    constructor() {
+      this.cookieHandler = new CookieHandler();
+      this.storageHandler = new StorageHandler();
+    }
+    async getCurrentSession(domain, tabId) {
+      try {
+        const [cookies, storageData] = await Promise.all([
+          this.cookieHandler.getCookiesForDomain(domain),
+          this.storageHandler.getStorageData(tabId)
+        ]);
+        return {
+          cookies,
+          localStorage: storageData.localStorage,
+          sessionStorage: storageData.sessionStorage
+        };
+      } catch (error) {
+        throw new ExtensionError(`Failed to get current session: ${error}`);
+      }
+    }
+    async switchToSession(sessionData, tabId) {
+      if (!sessionData || !tabId) {
+        console.error("Invalid session data or tab ID:", { sessionData, tabId });
+        throw new ExtensionError("Invalid session data or tab ID");
+      }
+      const { domain, cookies, localStorage: localStorage2, sessionStorage: sessionStorage2 } = sessionData;
+      if (!domain) {
+        console.error("Missing domain in session data:", sessionData);
+        throw new ExtensionError("Missing domain in session data");
+      }
+      console.log(`Switching to session for domain: ${domain}, tab: ${tabId}`);
+      try {
+        console.log("Clearing cookies for domain:", domain);
+        await this.cookieHandler.clearCookiesForDomain(domain);
+        console.log("Restoring session data...");
+        const results = await Promise.allSettled([
+          this.cookieHandler.restoreCookies(cookies, domain),
+          this.storageHandler.restoreStorageData(tabId, {
+            localStorage: localStorage2,
+            sessionStorage: sessionStorage2
+          })
+        ]);
+        const failures = results.filter((r) => r.status === "rejected");
+        if (failures.length > 0) {
+          console.error(
+            "Some operations failed during session switch:",
+            failures.map((f) => f.reason)
+          );
+        }
+        console.log("Reloading tab:", tabId);
+        await chrome.tabs.reload(tabId);
+        console.log("Session switch completed successfully");
+      } catch (error) {
+        console.error("Failed to switch session:", error);
+        throw new ExtensionError(`Failed to switch session: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    async clearSession(domain, tabId) {
+      try {
+        await Promise.all([
+          this.cookieHandler.clearCookiesForDomain(domain),
+          this.storageHandler.clearStorageData(tabId)
+        ]);
+        await chrome.tabs.reload(tabId);
+      } catch (error) {
+        throw new ExtensionError(`Failed to clear session: ${error}`);
+      }
+    }
+  };
+
+  // src/shared/constants/messages.ts
+  var MESSAGE_ACTIONS = {
+    GET_CURRENT_SESSION: "getCurrentSession",
+    SWITCH_SESSION: "switchSession",
+    CLEAR_SESSION: "clearSession",
+    // GET_CURRENT_DOMAIN removed - now using URL parameters
+    CLEAR_SESSIONS: "clearSessions",
+    EXPORT_SESSIONS: "exportSessions",
+    IMPORT_SESSIONS: "importSessions"
+  };
+
+  // src/shared/constants/requiredPermission.ts
+  var REQUIRED_PERMISSIONS = [
+    "storage",
+    "tabs",
+    "cookies",
+    "activeTab",
+    "scripting"
+  ];
+
+  // src/background/services/message.service.ts
+  var MessageService = class {
+    constructor() {
+      this.sessionHandler = new SessionHandler();
+    }
+    handleMessage(message, _, sendResponse) {
+      if (!message || typeof message !== "object" || !message.action) {
+        console.error("Invalid message received:", message);
+        sendResponse({ success: false, error: "Invalid message format" });
+        return true;
+      }
+      console.log("Processing message:", message.action);
+      this.checkPermissions().then(() => {
+        return this.processMessage(message, sendResponse);
+      }).catch((error) => {
+        const errorMessage = handleError(error, "MessageService.handleMessage");
+        console.error("Error in message handling:", errorMessage);
+        sendResponse({ success: false, error: errorMessage });
+      });
+      return true;
+    }
+    async checkPermissions() {
+      try {
+        const permissions = await chrome.permissions.getAll();
+        this.validateRequiredPermissions(permissions);
+        this.validateOriginPermissions(permissions);
+      } catch (error) {
+        throw error;
+      }
+    }
+    validateRequiredPermissions(permissions) {
+      for (const permission of REQUIRED_PERMISSIONS) {
+        if (!permissions.permissions?.includes(permission)) {
+          throw new Error("Data access permission is required.");
+        }
+      }
+    }
+    validateOriginPermissions(permissions) {
+      const origins = permissions.origins || [];
+      if (origins.length === 0) {
+        throw new Error("Data access permission is required.");
+      }
+      const hasBroadAccess = origins.some(
+        (origin) => origin === "<all_urls>" || origin === "*://*/*" || origin === "http://*/*" || origin === "https://*/*"
+      );
+      if (!hasBroadAccess) {
+        throw new Error("Data access permission is required.");
+      }
+    }
+    async processMessage(message, sendResponse) {
+      try {
+        console.log(`Processing action: ${message.action}`);
+        switch (message.action) {
+          case MESSAGE_ACTIONS.GET_CURRENT_SESSION:
+            await this.handleGetCurrentSession(message, sendResponse);
+            break;
+          case MESSAGE_ACTIONS.SWITCH_SESSION:
+            await this.handleSwitchSession(message, sendResponse);
+            break;
+          case MESSAGE_ACTIONS.CLEAR_SESSION:
+            await this.handleClearSession(message, sendResponse);
+            break;
+          // GET_CURRENT_DOMAIN handler removed - now using URL parameters
+          case MESSAGE_ACTIONS.CLEAR_SESSIONS:
+            await this.handleClearSessions(message, sendResponse);
+            break;
+          case MESSAGE_ACTIONS.EXPORT_SESSIONS:
+            await this.handleExportSessions(message, sendResponse);
+            break;
+          case MESSAGE_ACTIONS.IMPORT_SESSIONS:
+            await this.handleImportSessions(message, sendResponse);
+            break;
+          default:
+            const unknownMessage = message;
+            sendResponse({ success: false, error: `Unknown action: ${unknownMessage.action}` });
+        }
+      } catch (error) {
+        const unknownMessage = message;
+        console.error(`Error processing message ${unknownMessage.action}:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        sendResponse({ success: false, error: `Error processing ${unknownMessage.action}: ${errorMessage}` });
+      }
+    }
+    async handleGetCurrentSession(message, sendResponse) {
+      const sessionData = await this.sessionHandler.getCurrentSession(message.domain, message.tabId);
+      sendResponse({ success: true, data: sessionData });
+    }
+    async handleSwitchSession(message, sendResponse) {
+      try {
+        console.log("Switching to session:", message.sessionData.id, "for tab:", message.tabId);
+        if (!message.sessionData || !message.tabId) {
+          console.error("Invalid session data or tab ID:", message);
+          sendResponse({ success: false, error: "Invalid session data or tab ID" });
+          return;
+        }
+        await this.sessionHandler.switchToSession(message.sessionData, message.tabId);
+        console.log("Successfully switched to session:", message.sessionData.id);
+        sendResponse({ success: true });
+      } catch (error) {
+        console.error("Error switching session:", error);
+        sendResponse({
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+    async handleClearSession(message, sendResponse) {
+      await this.sessionHandler.clearSession(message.domain, message.tabId);
+      sendResponse({ success: true });
+    }
+    // handleGetCurrentDomain method removed - now using URL parameters
+    async handleClearSessions(message, sendResponse) {
+      try {
+        const { clearOption, domain } = message;
+        if (clearOption === "current") {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab && tab.id) {
+            await this.sessionHandler.clearSession(domain, tab.id);
+            const sessions = await this.getStoredSessions();
+            const updatedSessions = sessions.filter((s) => s.domain !== domain);
+            await this.saveStoredSessions(updatedSessions);
+          }
+        } else if (clearOption === "all") {
+          await this.saveStoredSessions([]);
+          await this.saveActiveSessionsMap({});
+        }
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: String(error) });
+      }
+    }
+    async handleExportSessions(message, sendResponse) {
+      try {
+        const { exportOption, domain } = message;
+        const sessions = await this.getStoredSessions();
+        let sessionsToExport = sessions;
+        if (exportOption === "current") {
+          sessionsToExport = sessions.filter((s) => s.domain === domain);
+        }
+        const exportData = {
+          version: "1.0",
+          exportDate: (/* @__PURE__ */ new Date()).toISOString(),
+          sessions: sessionsToExport
+        };
+        sendResponse({ success: true, data: JSON.stringify(exportData, null, 2) });
+      } catch (error) {
+        sendResponse({ success: false, error: String(error) });
+      }
+    }
+    async handleImportSessions(message, sendResponse) {
+      try {
+        const { data } = message;
+        let importData;
+        try {
+          importData = JSON.parse(data);
+        } catch (e) {
+          sendResponse({ success: false, error: "Invalid JSON format" });
+          return;
+        }
+        if (!importData || !importData.sessions || !Array.isArray(importData.sessions)) {
+          sendResponse({ success: false, error: "Invalid import data format" });
+          return;
+        }
+        const currentSessions = await this.getStoredSessions();
+        const importedSessions = importData.sessions;
+        const sessionsWithNewIds = importedSessions.map((session) => ({
+          ...session,
+          id: crypto.randomUUID()
+        }));
+        const mergedSessions = [...currentSessions, ...sessionsWithNewIds];
+        await this.saveStoredSessions(mergedSessions);
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: String(error) });
+      }
+    }
+    async getStoredSessions() {
+      const result = await chrome.storage.local.get(STORAGE_KEYS.SESSIONS);
+      return result[STORAGE_KEYS.SESSIONS] || [];
+    }
+    async saveStoredSessions(sessions) {
+      await chrome.storage.local.set({ [STORAGE_KEYS.SESSIONS]: sessions });
+    }
+    async getActiveSessionsMap() {
+      const result = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_SESSIONS);
+      return result[STORAGE_KEYS.ACTIVE_SESSIONS] || {};
+    }
+    async saveActiveSessionsMap(activeSessions) {
+      await chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: activeSessions });
+    }
+  };
+
+  // src/background/index.ts
+  var messageService = new MessageService();
+  var initializeExtension = () => {
+    console.log("Session Switcher extension initializing...");
+    if (!messageService) {
+      console.error("Message service not initialized!");
+    } else {
+      console.log("Message service ready");
+    }
+  };
+  
+  chrome.runtime.onStartup.addListener(() => {
+    console.log("Session Switcher extension started");
+    initializeExtension();
+  });
+  
+  chrome.runtime.onInstalled.addListener((details) => {
+    console.log("Session Switcher extension installed/updated", details);
+    if (details.reason === "install") {
+      chrome.storage.local.set({
+        [STORAGE_KEYS.SESSIONS]: [],
+        [STORAGE_KEYS.ACTIVE_SESSIONS]: {}
+      });
+    }
+    initializeExtension();
+  });
+  
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log("Received message:", message?.action || "unknown");
+    try {
+      return messageService.handleMessage(message, sender, sendResponse);
+    } catch (error) {
+      console.error("Error in message listener:", error);
+      sendResponse({ success: false, error: String(error) });
+      return true;
+    }
+  });
+})();
+
+
